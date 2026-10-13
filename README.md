@@ -25,3 +25,36 @@ _(будет заполнено по мере разработки)_
 
 ```bash
 python -m src.main --config configs/config.yaml
+
+
+### Этап 1 (реализовано)
+
+- Конфигурация загружается из YAML-файла.
+- Параметры:
+  - `package_name` — имя пакета;
+  - `repository_url` — URL репозитория или путь к тестовому файлу;
+  - `test_mode` — использовать тестовый репозиторий;
+  - `package_version` — версия пакета;
+  - `output_image` — путь к PNG с графом;
+  - `ascii_tree` — выводить ли ASCII-дерево;
+  - `max_depth` — максимальная глубина анализа.
+- При запуске выводится отладочный дамп параметров в формате ключ-значение.
+- Обработка ошибок: файл не найден, неверный YAML, отсутствие обязательных полей, пустые строки, неверные типы, глубина < 1.
+
+## Примеры использования
+
+```bash
+python -m src.main --config configs/config.yaml
+```
+
+Вывод при запуске:
+```
+Параметры запуска:
+  package_name     = 'Newtonsoft.Json'
+  repository_url   = 'https://api.nuget.org/v3-flatcontainer'
+  test_mode        = False
+  package_version  = '13.0.3'
+  output_image     = 'output/graph.png'
+  ascii_tree       = True
+  max_depth        = 5
+```
