@@ -2,7 +2,17 @@
 
 import pytest
 
-from src.config import Config, ConfigError, format_config, load_config
+from src.config import (
+    DEFAULT_MAX_DEPTH,
+    INFINITE_DEPTH,
+    Config,
+    ConfigError,
+    format_config,
+    load_config,
+)
+
+DEFAULT_DEPTH = 5
+INVALID_DEPTH = -2
 
 
 def _write_yaml(tmp_path, content: str) -> str:
@@ -12,14 +22,14 @@ def _write_yaml(tmp_path, content: str) -> str:
     return str(path)
 
 
-VALID_YAML = """
+VALID_YAML = f"""
 package_name: "Newtonsoft.Json"
 repository_url: "https://api.nuget.org/v3-flatcontainer"
 test_mode: false
 package_version: "13.0.3"
 output_image: "output/graph.png"
 ascii_tree: true
-max_depth: 5
+max_depth: {DEFAULT_DEPTH}
 """
 
 
@@ -32,7 +42,7 @@ class TestLoadConfig:
         config = load_config(path)
         assert config.package_name == "Newtonsoft.Json"
         assert config.test_mode is False
-        assert config.max_depth == 5
+        assert config.max_depth == DEFAULT_DEPTH
 
     def test_missing_file(self) -> None:
         """Отсутствующий файл даёт ошибку."""
@@ -74,18 +84,42 @@ class TestLoadConfig:
             load_config(path)
 
     def test_invalid_max_depth(self, tmp_path) -> None:
-        """max_depth < 1 — ошибка."""
-        yaml_text = VALID_YAML.replace("max_depth: 5", "max_depth: 0")
+        """max_depth < -1 — ошибка."""
+        yaml_text = VALID_YAML.replace(
+            f"max_depth: {DEFAULT_DEPTH}",
+            f"max_depth: {INVALID_DEPTH}",
+        )
         path = _write_yaml(tmp_path, yaml_text)
         with pytest.raises(ConfigError):
             load_config(path)
 
     def test_default_max_depth(self, tmp_path) -> None:
-        """max_depth отсутствует — берётся по умолчанию."""
-        yaml_text = VALID_YAML.replace("max_depth: 5\n", "")
+        """max_depth отсутствует — берётся -1 (без ограничений)."""
+        yaml_text = VALID_YAML.replace(f"max_depth: {DEFAULT_DEPTH}\n", "")
         path = _write_yaml(tmp_path, yaml_text)
         config = load_config(path)
-        assert config.max_depth == 5
+        assert config.max_depth == INFINITE_DEPTH
+        assert config.max_depth == DEFAULT_MAX_DEPTH
+
+    def test_infinite_depth_explicit(self, tmp_path) -> None:
+        """max_depth: -1 — допустимо (без ограничений)."""
+        yaml_text = VALID_YAML.replace(
+            f"max_depth: {DEFAULT_DEPTH}",
+            f"max_depth: {INFINITE_DEPTH}",
+        )
+        path = _write_yaml(tmp_path, yaml_text)
+        config = load_config(path)
+        assert config.max_depth == INFINITE_DEPTH
+
+    def test_zero_depth_allowed(self, tmp_path) -> None:
+        """max_depth: 0 — допустимо (только корень)."""
+        yaml_text = VALID_YAML.replace(
+            f"max_depth: {DEFAULT_DEPTH}",
+            "max_depth: 0",
+        )
+        path = _write_yaml(tmp_path, yaml_text)
+        config = load_config(path)
+        assert config.max_depth == 0
 
 
 class TestFormatConfig:
@@ -100,7 +134,7 @@ class TestFormatConfig:
             package_version="1.0",
             output_image="out.png",
             ascii_tree=False,
-            max_depth=3,
+            max_depth=DEFAULT_DEPTH,
         )
         text = format_config(config)
         for key in (

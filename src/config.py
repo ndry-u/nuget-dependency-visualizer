@@ -15,8 +15,9 @@ REQUIRED_FIELDS = (
     "output_image",
     "ascii_tree",
 )
-DEFAULT_MAX_DEPTH = 5
-MIN_DEPTH = 1
+DEFAULT_MAX_DEPTH = -1
+INFINITE_DEPTH = -1
+MIN_ALLOWED_DEPTH = -1
 
 
 class ConfigError(Exception):
@@ -34,7 +35,7 @@ class Config:
         package_version: версия пакета.
         output_image: путь к сгенерированному изображению.
         ascii_tree: выводить ли ASCII-дерево.
-        max_depth: максимальная глубина анализа.
+        max_depth: максимальная глубина анализа (-1 = без ограничений).
     """
 
     package_name: str
@@ -134,7 +135,7 @@ def _check_depth(value: object) -> int:
         value: значение из конфига или None.
 
     Returns:
-        Целое число ≥ MIN_DEPTH.
+        Целое число ≥ -1. -1 означает бесконечность.
 
     Raises:
         ConfigError: если значение некорректно.
@@ -143,8 +144,11 @@ def _check_depth(value: object) -> int:
         return DEFAULT_MAX_DEPTH
     if not isinstance(value, int) or isinstance(value, bool):
         raise ConfigError("Поле 'max_depth' должно быть целым числом")
-    if value < MIN_DEPTH:
-        raise ConfigError(f"Поле 'max_depth' должно быть ≥ {MIN_DEPTH}")
+    if value < MIN_ALLOWED_DEPTH:
+        raise ConfigError(
+            f"Поле 'max_depth' должно быть ≥ {MIN_ALLOWED_DEPTH} "
+            "(-1 = без ограничений)"
+        )
     return value
 
 

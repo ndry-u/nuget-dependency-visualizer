@@ -4,4 +4,3 @@ test_mode: false
 package_version: "13.0.3"
 output_image: "output/graph.png"
 ascii_tree: true
-max_depth: 5
