@@ -14,6 +14,10 @@ from src.nuget import (
     fetch_dependencies,
 )
 
+EXPECTED_FLAT_DEPS = 2
+EXPECTED_GROUPED_DEPS = 2
+EXPECTED_SERILOG_COUNT = 1
+
 SAMPLE_NUSPEC = """<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
   <metadata>
@@ -134,7 +138,7 @@ class TestParseNuspec:
     def test_parse_dependencies(self) -> None:
         """Извлекаются все зависимости (плоский список)."""
         result = _parse_nuspec(SAMPLE_NUSPEC.encode("utf-8"))
-        assert len(result) == 2
+        assert len(result) == EXPECTED_FLAT_DEPS
         assert result[0] == Dependency("Newtonsoft.Json", "13.0.3")
         assert result[1] == Dependency("System.Text.Json", "8.0.0")
 
@@ -155,6 +159,7 @@ class TestParseGroupedNuspec:
     def test_grouped_dependencies(self) -> None:
         """Зависимости извлекаются из групп."""
         result = _parse_nuspec(GROUPED_NUSPEC.encode("utf-8"))
+        assert len(result) == EXPECTED_GROUPED_DEPS
         names = [d.name for d in result]
         assert "Serilog" in names
         assert "Newtonsoft.Json" in names
@@ -163,7 +168,7 @@ class TestParseGroupedNuspec:
         """Повторяющиеся зависимости объединяются."""
         result = _parse_nuspec(GROUPED_NUSPEC.encode("utf-8"))
         names = [d.name for d in result]
-        assert names.count("Serilog") == 1
+        assert names.count("Serilog") == EXPECTED_SERILOG_COUNT
 
 
 class TestFetchDependencies:

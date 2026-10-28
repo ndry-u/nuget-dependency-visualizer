@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import io
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as et
 import zipfile
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
@@ -140,8 +140,8 @@ def _parse_nuspec(xml_bytes: bytes) -> list[Dependency]:
         NuGetError: если XML некорректен или корневой тег неожиданный.
     """
     try:
-        root = ET.fromstring(xml_bytes)
-    except ET.ParseError as error:
+        root = et.fromstring(xml_bytes)
+    except et.ParseError as error:
         raise NuGetError(f"Ошибка парсинга .nuspec: {error}") from error
 
     ns = {"n": NUSPEC_NS}
