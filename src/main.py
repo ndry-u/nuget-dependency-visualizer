@@ -1,6 +1,6 @@
 """Точка входа приложения.
 
-Этап 2: сбор прямых зависимостей пакета NuGet.
+Этап 3: обход графа зависимостей в глубину (DFS).
 """
 
 from __future__ import annotations
@@ -9,17 +9,15 @@ import argparse
 import sys
 
 from src.config import ConfigError, format_config, load_config
+from src.graph import DependencyGraph, GraphError
 from src.nuget import NuGetError, fetch_dependencies
+from src.test_repo import RepoParseError, load_test_repo
 
 DEFAULT_CONFIG_PATH = "configs/config.yaml"
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Создаёт argparse-парсер.
-
-    Returns:
-        Настроенный парсер.
-    """
+    """Создаёт argparse-парсер."""
     parser = argparse.ArgumentParser(
         prog="nuget-graph",
         description="Визуализатор графа зависимостей NuGet",
@@ -33,31 +31,26 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def print_dependencies(package: str, dependencies: list) -> None:
-    """Выводит прямые зависимости пакета.
+def _get_children_nuget(package: str, config) -> list[str]:
+    """Возвращает имена прямых зависимостей из NuGet."""
+    try:
+        version = (
+            config.package_version
+            if package.lower() == config.package_name.lower()
+            else "latest"
+        )
 
-    Args:
-        package: имя пакета.
-        dependencies: список объектов Dependency.
-    """
-    if not dependencies:
-        print(f"{package}: нет прямых зависимостей")
-        return
+        if version == "latest":
+            return []
 
-    print(f"Прямые зависимости {package}:")
-    for dep in dependencies:
-        print(f"  - {dep.name} ({dep.version})")
+        deps = fetch_dependencies(package, version, config.repository_url)
+        return [d.name for d in deps]
+    except NuGetError:
+        return []
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Точка входа.
-
-    Args:
-        argv: аргументы командной строки.
-
-    Returns:
-        Код возврата: 0 при успехе, 1 при ошибке.
-    """
+    """Точка входа."""
     parser = build_parser()
     args = parser.parse_args(argv)
 
@@ -69,21 +62,54 @@ def main(argv: list[str] | None = None) -> int:
 
     print(format_config(config))
 
+    graph = DependencyGraph()
+    graph.add_node(config.package_name, config.package_version)
+
     if config.test_mode:
-        print("Тестовый режим: получение зависимостей из NuGet не выполняется")
-        return 0
+        print("\n[Тестовый режим]")
+        try:
+            repo = load_test_repo(config.repository_url)
+        except RepoParseError as error:
+            print(
+                f"Ошибка тестового репозитория: {error}",
+                file=sys.stderr,
+            )
+            return 1
 
-    try:
-        dependencies = fetch_dependencies(
-            config.package_name,
-            config.package_version,
-            config.repository_url,
-        )
-    except NuGetError as error:
-        print(f"Ошибка NuGet: {error}", file=sys.stderr)
-        return 1
+        def fetch_test(pkg_name: str) -> list[str]:
+            return repo.get(pkg_name, [])
 
-    print_dependencies(config.package_name, dependencies)
+        for node, children in repo.items():
+            graph.add_node(node, "test")
+            for child in children:
+                graph.add_node(child, "test")
+
+        try:
+            order = graph.dfs_traversal(
+                config.package_name, config.max_depth, fetch_test
+            )
+        except GraphError as error:
+            print(f"Ошибка графа: {error}", file=sys.stderr)
+            return 1
+
+    else:
+        print("\n[Реальный режим NuGet]")
+
+        def fetch_nuget(pkg_name: str) -> list[str]:
+            return _get_children_nuget(pkg_name, config)
+
+        try:
+            order = graph.dfs_traversal(
+                config.package_name, config.max_depth, fetch_nuget
+            )
+        except GraphError as error:
+            print(f"Ошибка графа: {error}", file=sys.stderr)
+            return 1
+
+    print(f"\nПорядок обхода зависимостей (глубина {config.max_depth}):")
+    for i, node in enumerate(order):
+        print(f"  {i + 1}. {node.name}")
+
     return 0
 
 
