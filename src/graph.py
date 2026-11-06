@@ -35,23 +35,13 @@ class DependencyGraph:
         self.nodes: dict[str, GraphNode] = {}
 
     def add_node(self, name: str, version: str) -> None:
-        """Добавляет узел, если его ещё нет.
-
-        Args:
-            name: имя пакета.
-            version: версия.
-        """
+        """Добавляет узел, если его ещё нет."""
         key = name.lower()
         if key not in self.nodes:
             self.nodes[key] = GraphNode(name=name, version=version)
 
     def add_edge(self, parent: str, child: str) -> None:
-        """Добавляет связь parent -> child.
-
-        Args:
-            parent: имя родительского пакета.
-            child: имя дочернего пакета.
-        """
+        """Добавляет связь parent -> child."""
         parent_key = parent.lower()
         child_key = child.lower()
         if parent_key not in self.nodes:
@@ -65,26 +55,40 @@ class DependencyGraph:
         if child_key not in parent_children:
             self.nodes[parent_key].children.append(child)
 
+    def _load_children(
+        self,
+        node: GraphNode,
+        fetch_children: Callable[[str], list[str]],
+    ) -> list[str]:
+        """Загружает дочерние узлы в граф и возвращает их имена."""
+        children_names = fetch_children(node.name)
+        for child_name in children_names:
+            child_key = child_name.lower()
+            if child_key not in self.nodes:
+                self.add_node(child_name, version="unknown")
+            self.add_edge(node.name, child_name)
+        return children_names
+
+    def _push_children(
+        self,
+        children: list[str],
+        depth: int,
+        visited: set[str],
+        stack: list[tuple[str, int]],
+    ) -> None:
+        """Добавляет непосещённых детей в стек."""
+        for child_name in reversed(children):
+            child_key = child_name.lower()
+            if child_key not in visited:
+                stack.append((child_key, depth + 1))
+
     def dfs_traversal(
         self,
         root_name: str,
         max_depth: int,
         fetch_children: Callable[[str], list[str]],
     ) -> list[GraphNode]:
-        """Обходит граф в глубину без рекурсии.
-
-        Args:
-            root_name: имя корневого пакета.
-            max_depth: максимальная глубина (-1 = бесконечно).
-            fetch_children: функция, возвращающая список дочерних имён
-                для пакета (для ленивой загрузки).
-
-        Returns:
-            Список узлов в порядке обхода (без дубликатов).
-
-        Raises:
-            GraphError: если корневой пакет не найден.
-        """
+        """Обходит граф в глубину без рекурсии."""
         root_key = root_name.lower()
         if root_key not in self.nodes:
             raise GraphError(f"Корневой пакет не найден: {root_name}")
@@ -106,17 +110,9 @@ class DependencyGraph:
             if max_depth != INFINITE_DEPTH and current_depth >= max_depth:
                 continue
 
-            children_names = fetch_children(node.name)
-
-            for child_name in children_names:
-                child_key = child_name.lower()
-                if child_key not in self.nodes:
-                    self.add_node(child_name, version="unknown")
-                self.add_edge(node.name, child_name)
-
-            for child_name in reversed(children_names):
-                child_key = child_name.lower()
-                if child_key not in visited:
-                    stack.append((child_key, current_depth + 1))
+            children = self._load_children(node, fetch_children)
+            self._push_children(
+                children, current_depth, visited, stack
+            )
 
         return order

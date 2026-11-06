@@ -5,6 +5,8 @@ import pytest
 from src.graph import DependencyGraph, GraphError
 from src.test_repo import RepoParseError, load_test_repo
 
+EXPECTED_CYCLE_NODES = 2
+
 SAMPLE_REPO = """A: B C
 B: D
 C: D E
@@ -72,7 +74,7 @@ class TestDependencyGraph:
 
         repo = {"A": ["B"], "B": ["A"]}
         order = graph.dfs_traversal("A", -1, _fetch_factory(repo))
-        assert len(order) == 2
+        assert len(order) == EXPECTED_CYCLE_NODES
 
     def test_unknown_root(self) -> None:
         """Несуществующий корень — ошибка."""
