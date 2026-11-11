@@ -1,6 +1,6 @@
 """Точка входа приложения.
 
-Этап 4: вывод порядка загрузки (топологическая сортировка).
+Этап 5: визуализация графа (D2 + ASCII-дерево).
 """
 
 from __future__ import annotations
@@ -13,6 +13,12 @@ from src.graph import DependencyGraph, GraphError
 from src.nuget import NuGetError, fetch_dependencies
 from src.test_repo import RepoParseError, load_test_repo
 from src.toposort import CycleDetectedError, topological_sort
+from src.visualize import (
+    VisualizeError,
+    generate_ascii_tree,
+    generate_d2_code,
+    render_png,
+)
 
 DEFAULT_CONFIG_PATH = "configs/config.yaml"
 
@@ -84,6 +90,24 @@ def _build_graph(config: Config) -> DependencyGraph:
     return graph
 
 
+def _print_load_order(graph: DependencyGraph, config: Config) -> None:
+    """Выводит порядок загрузки или предупреждение о цикле."""
+    try:
+        order = topological_sort(graph)
+    except CycleDetectedError as error:
+        print(f"Предупреждение: {error}", file=sys.stderr)
+        dfs_order = graph.dfs_traversal(
+            config.package_name, config.max_depth, lambda x: []
+        )
+        order = [n.name for n in dfs_order]
+        print("Выводим порядок обхода DFS:")
+    else:
+        print("\nПорядок загрузки зависимостей (сначала листья):")
+
+    for i, name in enumerate(order):
+        print(f"  {i + 1}. {name}")
+
+
 def main(argv: list[str] | None = None) -> int:
     """Точка входа."""
     parser = build_parser()
@@ -96,26 +120,31 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print(format_config(config))
-    graph = _build_graph(config)
-
+    
     if config.test_mode:
         print("\n[Тестовый режим]")
     else:
         print("\n[Реальный режим NuGet]")
 
+    graph = _build_graph(config)
+    _print_load_order(graph, config)
+
+    print("\nГенерация визуализации...")
     try:
-        order = topological_sort(graph)
-    except CycleDetectedError as error:
-        print(f"Предупреждение: {error}", file=sys.stderr)
-        print("Выводим порядок обхода DFS:")
-        dfs_order = graph.dfs_traversal(
-            config.package_name, config.max_depth, lambda x: []
-        )
-        order = [n.name for n in dfs_order]
-    else:
-        print("\nПорядок загрузки зависимостей (сначала листья):")
-        for i, name in enumerate(order):
-            print(f"  {i + 1}. {name}")
+        d2_code = generate_d2_code(graph)
+        render_png(d2_code, config.output_image)
+        print(f"Граф сохранен в файл: {config.output_image}")
+    except VisualizeError as error:
+        # Если D2 упал, мы просто пишем ошибку, но НЕ выходим из программы
+        print(f"\n[!] Ошибка визуализации (PNG): {error}", file=sys.stderr)
+
+    if config.ascii_tree:
+        print("\nДерево зависимостей (ASCII):")
+        try:
+            tree = generate_ascii_tree(graph, config.package_name)
+            print(tree)
+        except VisualizeError as error:
+            print(f"Ошибка построения дерева: {error}", file=sys.stderr)
 
     return 0
 
