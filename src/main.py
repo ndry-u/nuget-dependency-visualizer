@@ -108,7 +108,6 @@ def main(argv: list[str] | None = None) -> int:
     except CycleDetectedError as error:
         print(f"Предупреждение: {error}", file=sys.stderr)
         print("Выводим порядок обхода DFS:")
-        # Разбиваем длинную строку
         dfs_order = graph.dfs_traversal(
             config.package_name, config.max_depth, lambda x: []
         )

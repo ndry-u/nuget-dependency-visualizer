@@ -5,9 +5,11 @@ import pytest
 from src.graph import DependencyGraph
 from src.toposort import CycleDetectedError, topological_sort
 
+EXPECTED_LEN = 4
+
 
 def _make_graph(edges: dict[str, list[str]]) -> DependencyGraph:
-    """Создаёт граф. edges: {'A': ['B']} = A зависит от B."""
+    """Создаёт граф из словаря зависимостей."""
     graph = DependencyGraph()
     for node, children in edges.items():
         graph.add_node(node, "1.0")
@@ -23,16 +25,13 @@ class TestTopologicalSort:
     """Тесты алгоритма Кана."""
 
     def test_linear_order(self) -> None:
-        """A зависит от B, B от C.
-
-        Порядок загрузки: C, B, A.
-        """
+        """A зависит от B, B от C. Порядок загрузки: C, B, A."""
         graph = _make_graph({"A": ["B"], "B": ["C"], "C": []})
         order = topological_sort(graph)
         assert order == ["C", "B", "A"]
 
     def test_tree_order(self) -> None:
-        """Древовидный граф."""
+        """Древовидный граф. D загружается первым, A — последним."""
         graph = _make_graph({
             "A": ["B", "C"],
             "B": ["D"],
@@ -40,11 +39,9 @@ class TestTopologicalSort:
             "D": [],
         })
         order = topological_sort(graph)
-        # D — самый глубокий, загружается первым.
-        # A — корень, загружается последним.
         assert order[0] == "D"
         assert order[-1] == "A"
-        assert len(order) == 4
+        assert len(order) == EXPECTED_LEN
 
     def test_cycle_raises(self) -> None:
         """Цикл A -> B -> A вызывает ошибку."""
