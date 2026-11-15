@@ -120,7 +120,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print(format_config(config))
-    
+
     if config.test_mode:
         print("\n[Тестовый режим]")
     else:
@@ -135,7 +135,6 @@ def main(argv: list[str] | None = None) -> int:
         render_png(d2_code, config.output_image)
         print(f"Граф сохранен в файл: {config.output_image}")
     except VisualizeError as error:
-        # Если D2 упал, мы просто пишем ошибку, но НЕ выходим из программы
         print(f"\n[!] Ошибка визуализации (PNG): {error}", file=sys.stderr)
 
     if config.ascii_tree:

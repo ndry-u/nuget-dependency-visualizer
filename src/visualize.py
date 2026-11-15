@@ -96,11 +96,8 @@ def _build_tree_lines(
             graph, child, extension, visited
         )
 
-        # Безопасное добавление отступа для первой строки
         first_child_line = child_lines[0].lstrip()
         lines.append(f"{prefix}{branch}{first_child_line}")
-
-        # Добавляем остальные строки потомка как есть
         lines.extend(child_lines[1:])
 
     return lines
